@@ -1,0 +1,41 @@
+
+This is an API interface for the pinboard.in social bookmarking website.
+
+The core.methods.all_by_tag() demonstrates usage rather well.  I've snipped applicable code.
+
+    username  = kwargs['username']
+    pass_word = kwargs['password']
+    tag       = kwargs['tag']
+    username  = kwargs['username']
+    pass_word = kwargs['password']
+    tag       = kwargs['tag']
+
+    ### instantiate the api connection module.
+    api = pbapi.connect.PinboardAPI()
+
+    ### install the urllib2 global handler for authentication
+    api.install(username,pass_word)
+
+    ### instantiate the Account object
+    account = pbapi.account.PinboardAccount()
+
+    ### call some methods on the account object
+    tagged_posts = account.all(tag=tag)
+    update_time  = account.update()
+
+There are many methods available within the Account instance.
+
+    account.suggest(url)     -> suggest tags for a given url
+    account.get(**kwargs)    -> get some posts
+    account.update()         -> get the last bookmark time
+    account.add(**kwargs)    -> add an additional bookmark [ url, description ] required
+    account.delete(url)      -> delete a given url from bookmark storage
+    account.recent(**kwargs) -> gets a list of recent bookmarks by given filters
+    account.dates(**kwargs)  -> gets a list of dates with counts for bookmarks per date
+    account.all(**kwargs)    -> gets a list of all bookmarks with optional filtering
+    account.tags_get()       -> returns a list of all tags with counts of use
+    account.tags_delete(tag) -> deletes a given tag
+    account.tags_rename(
+            old_tag, new_tag -> renames a tag from one name to another
+                       )
+    
