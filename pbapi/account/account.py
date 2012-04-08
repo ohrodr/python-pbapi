@@ -5,6 +5,12 @@ class PinboardAccount(dict):
     """A pinboard.in account class
        This class contains the main methods for operating on a
        pinboard account via the public https API
+           TODO:
+                 try to bother pinboard folks to add json across the board.
+
+           Author's note: 
+                          XML dom parsing sucks in our current state of art.
+                          I wish it was all json.
     """
 
     # override methods
@@ -12,25 +18,23 @@ class PinboardAccount(dict):
         try:
             return dict.__getitem__(self,key)
         except KeyError:
-            if key == "tags":
-                return self.tags()
+            if key == "update":
+                return self.update()
             elif key == "dates":
                 return self.dates()
             elif key == "posts":
-                return self.posts()
-            elif key == "bundles":
-                return self.bundles()
+                return self.get()
+            elif key == "tags":
+                return self.tags()
             else:
                 raise pbexcept.PinboardError()
 
-    def __setitem__(self, key, value):
-        if key == "posts":
-            self._postschanged = 1
-        return dict.__setitem__(self, key, value)
 
 
-    ## API parse methods
-    def suggest_parse(self,data):
+    def __suggest_parse(self,data):
+        """ 
+           private internal function to parse the suggest results 
+        """
         from xml.dom.minidom import parseString
         multi_line = ''
         for line in data: multi_line += line
@@ -44,8 +48,6 @@ class PinboardAccount(dict):
         return {'popular':popular_tags,
                 'recommended':recommended_tags }
 
-    """
-       The following methods are paired to the relevant API methods """
     def suggest(self,suggest_url):
         """
            Given an input URL retrieve suggested tags
@@ -64,11 +66,11 @@ class PinboardAccount(dict):
         suggest_parm = (('url',suggest_url),('format','xml'))
         for parm in suggest_parm: request.add_parm(parm)
         request._request() 
-        results = self.suggest_parse(request.data)
+        results = self._suggest_parse(request.data)
         return results
 
-    def get_parse(self,data):
-        """ this is the private get_parse method """
+    def _get_parse(self,data):
+        """ this is the private _get_parse method """
         import simplejson
         import re
         multi_line = ''
@@ -78,7 +80,17 @@ class PinboardAccount(dict):
         return json_string
 
     def get(self,**kwargs):
-        """ get method for the API """
+        """ 
+            get method for the API
+            Input Variables ( none required ):
+                tag  = space delimited lax of 3 max tags
+                date = date in spcified format: 2010-12-11T19:48:02Z
+                url  = href of bookmark url
+                meta = include metadata signature detection for changes?
+                
+            providing no kwargs will simply get from most recent bookmark date.
+            return json string representing the query
+         """
         from pbapi import API_URL
         request = Request()
         get_subpath = '/posts/get'
@@ -93,11 +105,11 @@ class PinboardAccount(dict):
         if 'meta'  in kwargs: get_parm['meta'] = kwargs['meta']
         for k,v in get_parm.iteritems(): request.add_parm((k,v))
         request._request()
-        results = self.get_parse(request.data) 
+        results = self._get_parse(request.data) 
         return results
 
-    def update_parse(self,data):
-        """ this is the private update_parse method """
+    def _update_parse(self,data):
+        """ this is the private _update_parse method """
         from xml.dom.minidom import parseString
         import time
         multi_line = ''
@@ -110,7 +122,11 @@ class PinboardAccount(dict):
         return update_time
 
     def update(self):
-        """ update method for the API """
+        """ 
+           update method for the API 
+           This is used to query the last updated bookmark time.
+           The intent is to call this prior to querying in automation.
+        """
         from pbapi import API_URL
         request = Request()
         update_subpath = '/posts/update'
@@ -120,10 +136,10 @@ class PinboardAccount(dict):
         
         for k,v in get_parm.iteritems(): request.add_parm((k,v))
         request._request()
-        return self.update_parse(request.data)
+        return self._update_parse(request.data)
 
-    def add_parse(self,data):
-        """ this is the private add_parse method """
+    def _result_parse(self,data):
+        """ this is the private _result_parse method """
         from xml.dom.minidom import parseString
         import time
         multi_line = ''
@@ -133,7 +149,23 @@ class PinboardAccount(dict):
         return result 
 
     def add(self,**kwargs):
-        """ add method for the API """
+        """ 
+           add method for the API
+           API requires at minimum url and description
+
+           Required Input:
+               url = url to bookmark
+               description = text description of link can be ''
+           Optional Input:
+               tags     = space delimited list of tags
+               date     = date string in proper format
+               replace  = replace existing bookmark
+               shared   = public bookmark
+               toread   = mark toread 
+               extended = extended information for delicious api compatibility.
+
+            Return json string representing API query 
+         """
         from pbapi import API_URL
         from pbapi import pbexcept
         add_subpath = '/posts/add'
@@ -155,9 +187,9 @@ class PinboardAccount(dict):
                 add_parm[k] = kwargs[k] 
         for k,v in add_parm.iteritems(): request.add_parm((k,v))
         request._request()
-        return self.add_parse(request.data) 
+        return self._result_parse(request.data) 
 
-    def delete_parse(self,data):
+    def _delete_parse(self,data):
         from xml.dom.minidom import parseString
         multi_line = ''
         for line in data: multi_line += line
@@ -166,7 +198,12 @@ class PinboardAccount(dict):
         return result.getAttribute('code')
 
     def delete(self,url):
-        """ delete method for the API """
+        """ 
+           delete method for the API 
+           Required Input:
+               url = url to delete
+           Return return code from API ( self explanitory )
+        """
         from pbapi import API_URL
         from pbapi import pbexcept
         del_subpath = '/posts/delete'
@@ -177,9 +214,10 @@ class PinboardAccount(dict):
         request.seturl(del_api_url)
         request.add_parm(('url',url))
         request._request()
-        return self.delete_parse(request.data)
+        return self._delete_parse(request.data)
 
-    def recent_parse(self,data):
+    def _recent_parse(self,data):
+        """ private parsing method """
         from xml.dom.minidom import parseString
         multi_line = ''
         for line in data: multi_line += line
@@ -210,6 +248,12 @@ class PinboardAccount(dict):
         return result_data
                   
     def recent(self,**kwargs):
+        """ recent API query
+            Optional Input:
+                tag = space delimited list of tags max 3
+                count = max count to return default 15 max 100 
+            Return json string representing API Query
+        """
         from pbapi import API_URL
         from pbapi import pbexcept
         recent_subpath = '/posts/recent'
@@ -224,9 +268,10 @@ class PinboardAccount(dict):
         request.seturl(recent_api_url)
         for k,v in recent_parm.iteritems(): request.add_parm((k,v))
         request._request()
-        return self.recent_parse(request.data)
+        return self._recent_parse(request.data)
 
-    def dates_parse(self,data):
+    def _date_parse(self,data):
+        """ private internal parsing method """
         from xml.dom.minidom import parseString
         multi_line = ''
         for line in data: multi_line += line
@@ -248,6 +293,13 @@ class PinboardAccount(dict):
         return output_data
 
     def dates(self,**kwargs):
+        """
+             Dates API interface
+             Optional Tags:
+                 tag = space delimited list of tags, maximum 3, to query
+             Return result json string repsenting the query
+             Returns a list of dates with number of each posts per date
+        """
         from pbapi import API_URL,pbexcept
         dates_subpath = '/posts/dates'
         dates_api_url = '%s%s' %( API_URL, dates_subpath )
@@ -258,9 +310,10 @@ class PinboardAccount(dict):
         request.seturl(dates_api_url)
         for k,v in dates_parm.iteritems(): request.add_parm(('tag',kwargs['tag']))
         request._request()
-        return self.dates_parse(request.data)
+        return self._date_parse(request.data)
 
-    def all_parse(self,data):
+    def _all_parse(self,data):
+        """ internal parsing method """
         import simplejson
         multi_line = ''
         for line in data: multi_line += line
@@ -268,6 +321,17 @@ class PinboardAccount(dict):
         return json_output
             
     def all(self,**kwargs):
+        """
+           all posts API interface
+           Optional Arguments:
+               tag = space delimited list of tags max 3
+               start = start offset *for paginated queries I guess*
+               results = number of results to return default: all
+               fromdt  = from formatted datetime 
+               meta    = include change detection signature
+               
+           return is json string representing API response
+        """
         from pbapi import API_URL, pbexcept
         possible_keys = ['tag','start','results','fromdt','todt','meta']
         all_subpath = '/posts/all'
@@ -282,9 +346,10 @@ class PinboardAccount(dict):
         request.seturl(all_api_url)
         for k,v in all_parm.iteritems(): request.add_parm((k,v))
         request._request()
-        return self.all_parse(request.data)
+        return self._all_parse(request.data)
 
-    def tags_set_parse(self,data):
+    def _tags_set_parse(self,data):
+        """ internal parsing method """
         from xml.dom.minidom import parseString
         multi_line = ''
         for line in data: multi_line += line
@@ -296,6 +361,12 @@ class PinboardAccount(dict):
         return output
 
     def tags_get(self):
+        """
+            get by tag API interface
+            returns a full list of the users tags and their associated count ordered most > least
+            no input
+            return json string representing API response
+        """
         from pbapi import API_URL, pbexcept
         tags_get_subpath = '/tags/get'
         tags_api_url = '%s%s' %( API_URL, tags_get_subpath )
@@ -303,9 +374,14 @@ class PinboardAccount(dict):
         request = Request()
         request.seturl(tags_api_url)
         request._request()
-        return self.tags_set_parse(request.data)
+        return self._tags_set_parse(request.data)
 
     def tags_delete(self,tag):
+        """ delete API for tags
+            Required Input:
+                tag = space delimited list of tags max 3
+            return API response code
+        """
         from pbapi import API_URL, pbexcept
         tags_delete_subpath = '/tags/delete'
         tags_delete_api_url = '%s%s' %( API_URL, tags_delete_subpath )
@@ -315,9 +391,15 @@ class PinboardAccount(dict):
         request.add_parm(('tag',tag))
          
         request._request()
-        return self.add_parse(request.data)
+        return self._result_parse(request.data)
 
     def tags_rename(self,old_tag,new_tag):
+        """ rename API for tags
+            Required Input:
+                old_tag = old tag name
+                new_tag = new tag name
+            return API response code
+        """
         from pbapi import API_URL, pbexcept
         tags_rename_subpath = '/tags/rename'
         tags_rename_api_url = '%s%s' %( API_URL, tags_rename_subpath )
@@ -327,4 +409,4 @@ class PinboardAccount(dict):
         request.seturl(tags_rename_api_url)
         for k,v in tags_rename_parm.iteritems(): request.add_parm((k,v))
         request._request()
-        return self.add_parse(request.data)
+        return self._result_parse(request.data)
