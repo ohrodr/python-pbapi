@@ -13,7 +13,12 @@ class ThrottleError(PinboardError):
 
 class AddError(PinboardError):
     """Error adding a post to pinboard.in"""
-    pass
+    def __init__(self,url,message):
+        self.url = url
+        self.message = message
+        self.code = -1
+    def __str__(self):
+        return "ERROR:%i:%s:%s" %(self.code,self.url,self.message)
 
 class GetError(PinboardError):
     """Error adding a post to pinboard.in"""
