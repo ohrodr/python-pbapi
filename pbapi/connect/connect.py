@@ -1,8 +1,8 @@
-
 class PinboardAPI():
     def __init__(self):
-        self._api_url       = 'https://api.pinboard.in/v1'
-        self._handler_realm = 'API'
+        from pbapi import API_URL, API_REALM
+        self._api_url       = API_URL
+        self._handler_realm = API_REALM
         self._handler_uri   = 'https://api.pinboard.in/'
         self.useragent      = "libPbAPI/0.1 +http://odr.me/python-pbapi"
 

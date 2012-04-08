@@ -15,6 +15,10 @@ class AddError(PinboardError):
     """Error adding a post to pinboard.in"""
     pass
 
+class GetError(PinboardError):
+    """Error adding a post to pinboard.in"""
+    pass
+
 class DeleteError(PinboardError):
     """Error deleting a post from pinboard.in"""
     pass
