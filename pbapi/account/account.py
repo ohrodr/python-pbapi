@@ -20,6 +20,17 @@ def _gen_request(url,parm_t):
         request._request() 
         return request
 
+def _gen_url(path):
+    from pbapi import API_URL
+    return '%s%s' %( API_URL, path )
+
+def _process_kwargs(self,kwargs,keys):
+    parms = {}
+    for k in keys:
+        for key,item in k:
+            if key in kwargs: parms[item] = kwargs[key]
+    return parms
+
 class PinboardAccount(dict):
     """A pinboard.in account class
        This class contains the main methods for operating on a
@@ -75,9 +86,8 @@ class PinboardAccount(dict):
            input as a string
            output { 'popular':[],'recommended':[]}
         """
-        from pbapi import API_URL
         suggest_subpath = '/posts/suggest'
-        suggest_api_url = '%s%s' %( API_URL ,suggest_subpath)
+        suggest_api_url = _gen_url(suggest_subpath)
         suggest_parm = {'url':suggest_url),
                         'format':'xml'}
         request = _gen_request(suggest_api_url,suggest_parm)
@@ -104,16 +114,17 @@ class PinboardAccount(dict):
             providing no kwargs will simply get from most recent bookmark date.
             return json string representing the query
          """
-        from pbapi import API_URL
         get_subpath = '/posts/get'
-        get_api_url = '%s%s' %( API_URL,get_subpath )
+        get_api_url = _gen_url(get_subpath )
 
         get_parm = {'format':'json'}
+        possible_input = [('tag','tag'),
+                          ('url','url'),
+                          ('meta','meta'),
+                          ('date','dt'),
+                         ]
         if ('date' in kwargs) and ('url' in kwargs): raise GetError
-        if 'tag'  in kwargs: get_parm['tag'] = kwargs['tag']
-        if 'date' in kwargs: get_parm['dt']  = kwargs['date']
-        if 'url'  in kwargs: get_parm['url'] = kwargs['url']
-        if 'meta'  in kwargs: get_parm['meta'] = kwargs['meta']
+        for (k,v) in _process_kwargs(kwargs,possible_input).iteritems(): get_parm[k] = v
         request = _gen_request(get_api_url,get_parm)
         results = self._get_parse(request.data) 
         return results
@@ -135,9 +146,8 @@ class PinboardAccount(dict):
            This is used to query the last updated bookmark time.
            The intent is to call this prior to querying in automation.
         """
-        from pbapi import API_URL
         update_subpath = '/posts/update'
-        update_api_url = '%s%s' %( API_URL,update_subpath )
+        update_api_url = _gen_url(update_subpath )
         update_parm = {'format':'json'}
         request = _gen_request(update_api_url,update_parm)
         return self._update_parse(request.data)
@@ -168,10 +178,9 @@ class PinboardAccount(dict):
 
             Return json string representing API query 
          """
-        from pbapi import API_URL
         from pbapi import pbexcept
         add_subpath = '/posts/add'
-        add_api_url = '%s%s' %( API_URL,add_subpath )
+        add_api_url = _gen_url(add_subpath )
         add_parm = { }
 
         # simple verification check
@@ -180,11 +189,16 @@ class PinboardAccount(dict):
         add_parm['description'] = add_parm['extended'] = kwargs['description']
         add_parm['url'] = kwargs['url']
 
-        possible_parms = ['tags','date','replace','shared','toread','extended']
-        for k in possible_parms: 
-            if k in kwargs: 
-                add_parm[k] = kwargs[k] 
-      
+        possible_parms = [('tags','tags'),
+                          ('date','dt'),
+                          ('replace','replace'),
+                          ('shared','shared'),
+                          ('toread','toread'),
+                          ('extended','extended'),
+                         ]
+
+        for (k,v) in _process_kwargs(kwargs,possible_parms).iteritems(): add_parm[k] = v
+
         request = _gen_request(add_api_url,add_parm)
         return self._result_parse(request.data) 
 
@@ -201,10 +215,9 @@ class PinboardAccount(dict):
                url = url to delete
            Return return code from API ( self explanitory )
         """
-        from pbapi import API_URL
         from pbapi import pbexcept
         del_subpath = '/posts/delete'
-        del_api_url = '%s%s' %( API_URL, del_subpath )
+        del_api_url = _gen_url(del_subpath )
         del_parm = {'url':url}
         request = _gen_request(delete_api_url,del_parm)
         return self._delete_parse(request.data)
@@ -245,15 +258,14 @@ class PinboardAccount(dict):
                 count = max count to return default 15 max 100 
             Return json string representing API Query
         """
-        from pbapi import API_URL
         from pbapi import pbexcept
         recent_subpath = '/posts/recent'
-        recent_api_url = '%s%s' %( API_URL, recent_subpath )
+        recent_api_url = _gen_url(recent_subpath )
         recent_parm = {}
-        if ('tag' in kwargs):
-            recent_parm['tag']   = kwargs['tag'] 
-        elif ('count' in kwargs):
-            recent_parm['count'] = kwargs['count'] 
+        possible_parms = [('tag','tag'),
+                          ('count','count'),
+                         ]
+        for (k,v) in _process_kwargs(kwargs,possible_parms).iteritems(): recent_parm[k] = v
     
         request = _gen_request(recent_api_url,recent_parm)
         return self._recent_parse(request.data)
@@ -286,11 +298,12 @@ class PinboardAccount(dict):
              Return result json string repsenting the query
              Returns a list of dates with number of each posts per date
         """
-        from pbapi import API_URL,pbexcept
+        from pbapi import pbexcept
         dates_subpath = '/posts/dates'
-        dates_api_url = '%s%s' %( API_URL, dates_subpath )
+        dates_api_url = _gen_url(dates_subpath )
         dates_parm = {}
-        if 'tag' in kwargs: dates_parm['tag'] = kwargs['tag'].split()
+        possible_parms = [('tag','tag'),]
+        for (k,v) in _process_kwargs(kwargs,possible_parms).iteritems(): dates_parm[k] = v.split()
 
         request = _gen_request(dates_api_url,dates_parm)
         return self._date_parse(request.data)
@@ -313,16 +326,20 @@ class PinboardAccount(dict):
                
            return is json string representing API response
         """
-        from pbapi import API_URL, pbexcept
-        possible_keys = ['tag','start','results','fromdt','todt','meta']
+        from pbapi import pbexcept
+        possible_parms = [('tag','tag'),
+                          ('start','start'),
+                          ('results','results'),
+                          ('from','fromdt'),
+                          ('to','todt'),
+                          ('meta','meta'),
+                         ]
         all_subpath = '/posts/all'
-        all_api_url = '%s%s' %( API_URL, all_subpath )
+        all_api_url = _gen_url(all_subpath )
         all_parm = {'format':'json'}
-        for k in possible_keys:
-            if k not in kwargs:
-                continue
-            else:
-                all_parm[k] = kwargs[k]
+
+        for (k,v) in _process_kwargs(kwargs,possible_parms).iteritems(): all_parm[k] = v
+
         request = _gen_request(all_api_url,all_parm)
         return self._all_parse(request.data)
 
@@ -343,38 +360,42 @@ class PinboardAccount(dict):
             no input
             return json string representing API response
         """
-        from pbapi import API_URL, pbexcept
+        from pbapi import pbexcept
         tags_get_subpath = '/tags/get'
-        tags_api_url = '%s%s' %( API_URL, tags_get_subpath )
+        tags_api_url = _gen_url( tags_get_subpath )
         
         request = _gen_request(tags_api_url,{})
         return self._tags_set_parse(request.data)
 
-    def tags_delete(self,tag):
+    def tags_delete(self,):
         """ delete API for tags
             Required Input:
                 tag = space delimited list of tags max 3
             return API response code
         """
-        from pbapi import API_URL, pbexcept
+        from pbapi import pbexcept
         tags_delete_subpath = '/tags/delete'
-        tags_delete_api_url = '%s%s' %( API_URL, tags_delete_subpath )
-        tags_parm = {'tag':tag}
+        tags_delete_api_url = _gen_url( tags_delete_subpath )
+        possible_parms = [ ('tag','tag'),]
+        tags_parm = _process_kwargs(kwargs,possible_parms) 
 
         request = _gen_request(tags_delete_api_url,tags_parm)
         return self._result_parse(request.data)
 
-    def tags_rename(self,old_tag,new_tag):
+    def tags_rename(self,**kwargs):
         """ rename API for tags
             Required Input:
-                old_tag = old tag name
-                new_tag = new tag name
+                old = old tag name
+                new = new tag name
             return API response code
         """
-        from pbapi import API_URL, pbexcept
+        from pbapi import pbexcept
         tags_rename_subpath = '/tags/rename'
-        tags_rename_api_url = '%s%s' %( API_URL, tags_rename_subpath )
-        tags_rename_parm = {'old':old_tag,'new':new_tag }
-        
+        tags_rename_api_url = _gen_url( tags_rename_subpath )
+        possible_parms = [ ('old','old'),
+                           ('new','new'),
+                         ]
+        tags_rename_parm = _process_kwargs(kwargs,possible_parms)
+       
         request = _gen_request(tags_rename_api_url,tags_rename_parm)
         return self._result_parse(request.data)

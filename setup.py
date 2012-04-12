@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 import sys, os
 
-version = '0.1'
+version = '0.0.2'
 
 setup(name='pbapi',
       version=version,
@@ -13,8 +13,8 @@ setup(name='pbapi',
       keywords='',
       author='Robb Driscoll',
       author_email='ohrodr@gmail.com',
-      url='http://odr.me',
-      license='BSD',
+      url='https://github.com/ohrodr/python-pbapi/wiki',
+      license='MIT',
       packages=find_packages(exclude=['ez_setup', 'examples', 'tests',]),
       include_package_data=True,
       zip_safe=False,
